@@ -1,0 +1,56 @@
+# macOS
+.DS_Store
+
+# 에디터
+.idea/
+.vscode/
+*.swp
+*~
+
+# 비밀
+.env
+.env.*
+!.env.example
+
+# Node / Next / pnpm
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+dist-test/
+.turbo/
+coverage/
+*.log
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# PHP Composer / Ruby
+vendor/
+.bundle/
+
+# Java
+target/
+
+# 업스트림 체크아웃. 각각 자체 git 저장소이므로 여기에는 넣지 않는다.
+# commerce-study/분석 노트는 추적한다.
+commerce-study/alf.io/
+commerce-study/easyappointments/
+commerce-study/librebooking/
+commerce-study/magento-inventory/
+commerce-study/magento2/
+commerce-study/medusa/
+commerce-study/odoo/
+commerce-study/pim-community-dev/
+commerce-study/pretix/
+commerce-study/QloApps/
+commerce-study/saleor/
+commerce-study/spree/
