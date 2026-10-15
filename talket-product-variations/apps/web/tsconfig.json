@@ -28,7 +28,6 @@
   },
   "include": [
     "next-env.d.ts",
-    "seat-picker.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

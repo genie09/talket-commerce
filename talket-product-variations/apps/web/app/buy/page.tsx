@@ -15,7 +15,7 @@ export default function BuyPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">구매</h1>
         <p className="max-w-2xl text-muted-foreground">
-          화면은 업종이 아니라 재고를 점유하는 방식으로 나뉩니다. 상품 안에서 v1 기본과 v2 통용 UI를 바꿔 볼 수 있고, 구매 뒤에는 환불이 붙습니다. 수량형만 판매 API에 연결됩니다.
+          화면은 업종이 아니라 재고를 점유하는 방식으로 나뉩니다. 슬롯, 구간 상품 안에서 v1 기본과 v2 통용 UI를 바꿔 볼 수 있고, 구매 뒤에는 환불이 붙습니다. 수량형만 판매 API에 연결됩니다.
         </p>
       </div>
       {archetypes.map((archetype) => (

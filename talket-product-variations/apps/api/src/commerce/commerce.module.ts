@@ -2,13 +2,13 @@ import { Module, OnModuleInit } from "@nestjs/common";
 import { DatabaseModule } from "../database/database.module";
 import { DatabaseService } from "../database/database.service";
 import { ensureSchema } from "../database/schema";
-import { QuantityController } from "./quantity.controller";
+import { CommerceController } from "./commerce.controller";
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [QuantityController],
+  controllers: [CommerceController],
 })
-export class QuantityModule implements OnModuleInit {
+export class CommerceModule implements OnModuleInit {
   constructor(private readonly database: DatabaseService) {}
 
   async onModuleInit(): Promise<void> {

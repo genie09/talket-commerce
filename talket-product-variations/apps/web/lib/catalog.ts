@@ -21,7 +21,17 @@ export const archetypeDescriptions: Record<Archetype, string> = {
 export type OptionAxis = {
   id: string;
   label: string;
+  /** sellable은 조합마다 판매 단위를 만들고, price는 같은 재고의 가격 행이다. */
+  role?: "sellable" | "price";
   values: { id: string; label: string }[];
+};
+
+export type CatalogInput = {
+  label: string;
+  required: boolean;
+  minLength: number;
+  maxLength: number;
+  scope: "line" | "unit";
 };
 
 type ProductBase = {
@@ -31,6 +41,7 @@ type ProductBase = {
   unitPrice: number;
   priceNote: string;
   options: OptionAxis[];
+  inputs?: CatalogInput[];
 };
 
 export type QuantityProductFixture = ProductBase & {
@@ -144,6 +155,7 @@ export const catalog: CatalogProduct[] = [
     unitPrice: 32000,
     priceNote: "1개",
     stock: 8,
+    inputs: [{ label: "각인", required: false, minLength: 0, maxLength: 20, scope: "line" }],
     options: [
       {
         id: "color",
@@ -185,6 +197,7 @@ export const catalog: CatalogProduct[] = [
       {
         id: "kind",
         label: "권종",
+        role: "price",
         values: [
           { id: "adult", label: "성인" },
           { id: "youth", label: "청소년" },

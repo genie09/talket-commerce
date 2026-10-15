@@ -6,7 +6,8 @@ import { OptionFields } from "@/components/purchase/option-fields";
 import { PurchaseShell, type ScreenReceipt } from "@/components/purchase/purchase-shell";
 import { RefundPanel } from "@/components/purchase/refund-panel";
 import { Stepper } from "@/components/purchase/stepper";
-import type { PurchaseVersion } from "@/components/purchase/version-bar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   initialOptions,
   optionLines,
@@ -15,6 +16,7 @@ import {
 import { won } from "@/lib/format";
 import { refundCopy } from "@/lib/refund-copy";
 import { ApiError, ensureQuantityProduct, refundQuantityOrder, reloadQuantityProduct, sellQuantity } from "@/lib/quantity-api";
+import type { OfferView, SellableView } from "@talket/contracts";
 
 const ledgerKind = {
   sale: "판매",
@@ -23,7 +25,7 @@ const ledgerKind = {
   payable: "지급 예정",
 } as const;
 
-export function QuantityPurchase({ fixture, version }: { fixture: QuantityProductFixture; version: PurchaseVersion }) {
+export function QuantityPurchase({ fixture }: { fixture: QuantityProductFixture }) {
   const [options, setOptions] = useState(() => initialOptions(fixture));
   const [quantity, setQuantity] = useState(1);
   const [live, setLive] = useState<QuantityProduct | null>(null);
@@ -34,6 +36,7 @@ export function QuantityPurchase({ fixture, version }: { fixture: QuantityProduc
   const [sold, setSold] = useState<QuantityOrder | null>(null);
   const [screenRefunded, setScreenRefunded] = useState(0);
   const [refundNote, setRefundNote] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -49,17 +52,30 @@ export function QuantityPurchase({ fixture, version }: { fixture: QuantityProduc
     };
   }, [fixture]);
 
-  const stock = live?.stock ?? 0;
-  const unitPrice = live?.unitPrice ?? fixture.unitPrice;
+  const sellable = live ? selectedSellable(fixture, live.sellables, options) : undefined;
+  const offer = selectedOffer(fixture, sellable, options);
+  const stock = sellable?.stock ?? 0;
+  const unitPrice = offer?.unitPrice ?? fixture.unitPrice;
   const choices = [...optionLines(fixture, options), `${quantity}개`];
-  const canBuy = live !== null && stock >= quantity && quantity >= 1 && !pending;
+  const missingAnswer = (live?.inputs ?? []).some(
+    (field) => field.required && field.scope === "line" && (answers[field.id] ?? "").trim().length === 0,
+  );
+  const canBuy = live !== null && sellable !== undefined && stock >= quantity && quantity >= 1 && !missingAnswer && !pending;
 
   async function buy(): Promise<void> {
     if (!live) return;
     setPending(true);
     setMessage(null);
     try {
-      const order = await sellQuantity(live.sellableId, quantity);
+      if (!sellable || !offer) return;
+      const order = await sellQuantity({
+        sellableId: sellable.id,
+        offerId: offer.id,
+        quantity,
+        answers: (live.inputs ?? [])
+          .filter((field) => field.scope === "line" && (answers[field.id] ?? "").trim().length > 0)
+          .map((field) => ({ fieldId: field.id, value: answers[field.id] ?? "" })),
+      });
       const refreshed = await reloadQuantityProduct(live.id);
       if (refreshed) setLive(refreshed);
       setSold(order);
@@ -103,7 +119,6 @@ export function QuantityPurchase({ fixture, version }: { fixture: QuantityProduc
 
   return (
     <PurchaseShell
-      version={version}
       product={fixture}
       choiceLines={live ? [...choices, `단가 ${won(unitPrice)}`, `재고 ${stock}`] : ["상품을 불러오는 중"]}
       total={live ? unitPrice * quantity : null}
@@ -131,11 +146,19 @@ export function QuantityPurchase({ fixture, version }: { fixture: QuantityProduc
         value={options}
         onChange={(axisId, valueId) => setOptions((current) => ({ ...current, [axisId]: valueId }))}
       />
-      {version === "2" ? (
-        <p className="text-2xl font-semibold tracking-tight">
-          {won(unitPrice)} <span className="text-base font-normal text-muted-foreground">{fixture.priceNote}</span>
-        </p>
-      ) : null}
+      {(live?.inputs ?? [])
+        .filter((field) => field.scope === "line")
+        .map((field) => (
+          <div key={field.id} className="grid gap-2">
+            <Label htmlFor={field.id}>{field.label}</Label>
+            <Input
+              id={field.id}
+              value={answers[field.id] ?? ""}
+              maxLength={field.maxLength}
+              onChange={(event) => setAnswers((current) => ({ ...current, [field.id]: event.target.value }))}
+            />
+          </div>
+        ))}
       <section className="space-y-2">
         <h2 className="text-sm font-medium">수량</h2>
         <Stepper
@@ -150,6 +173,33 @@ export function QuantityPurchase({ fixture, version }: { fixture: QuantityProduc
       </section>
     </PurchaseShell>
   );
+}
+
+function selectedSellable(
+  fixture: QuantityProductFixture,
+  sellables: SellableView[],
+  selected: Record<string, string>,
+): SellableView | undefined {
+  const axes = fixture.options.filter((axis) => (axis.role ?? "sellable") === "sellable");
+  if (axes.length === 0) return sellables[0];
+  const wanted = axes.map((axis) => ({
+    axis: axis.label,
+    value: axis.values.find((value) => value.id === selected[axis.id])?.label,
+  }));
+  return sellables.find((sellable) =>
+    wanted.every((pair) => sellable.options.some((option) => option.axis === pair.axis && option.value === pair.value)),
+  );
+}
+
+function selectedOffer(
+  fixture: QuantityProductFixture,
+  sellable: SellableView | undefined,
+  selected: Record<string, string>,
+): OfferView | undefined {
+  if (!sellable) return undefined;
+  const priceAxis = fixture.options.find((axis) => axis.role === "price");
+  if (!priceAxis) return sellable.offers[0];
+  return sellable.offers.find((offer) => offer.priceKey === selected[priceAxis.id]) ?? sellable.offers[0];
 }
 
 function serverReceipt(order: QuantityOrder, choices: string[]): ScreenReceipt {

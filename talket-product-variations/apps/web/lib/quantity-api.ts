@@ -49,6 +49,13 @@ async function findOrCreateQuantityProduct(fixture: QuantityProductFixture): Pro
       name: fixture.name,
       unitPrice: fixture.unitPrice,
       stock: fixture.stock,
+      axes: fixture.options
+        .filter((axis) => (axis.role ?? "sellable") === "sellable")
+        .map((axis) => ({ label: axis.label, values: axis.values.map((value) => value.label) })),
+      priceRows: fixture.options
+        .filter((axis) => axis.role === "price")
+        .flatMap((axis) => axis.values.map((value) => ({ priceKey: value.id, unitPrice: fixture.unitPrice }))),
+      inputs: fixture.inputs ?? [],
     }),
   });
   const createdBody = (await readBody(created)) as { ok: true; product: QuantityProduct } | Failure;
@@ -71,15 +78,36 @@ export async function refundQuantityOrder(
   return body.order;
 }
 
-export async function sellQuantity(sellableId: string, quantity: number): Promise<QuantityOrder> {
-  const response = await fetch("/backend/orders", {
+export async function sellQuantity(input: {
+  sellableId: string;
+  offerId?: string;
+  quantity: number;
+  answers?: { fieldId: string; unitIndex?: number; value: string }[];
+}): Promise<QuantityOrder> {
+  const held = await fetch("/backend/orders/hold", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ sellableId, quantity }),
+    body: JSON.stringify({
+      lines: [
+        {
+          sellableId: input.sellableId,
+          quantity: input.quantity,
+          ...(input.offerId ? { offerId: input.offerId } : {}),
+          ...(input.answers ? { answers: input.answers } : {}),
+        },
+      ],
+    }),
   });
-  const body = (await readBody(response)) as { ok: true; order: QuantityOrder } | Failure;
-  if (!response.ok || !body.ok) throw new ApiError(failureMessage(body));
-  return body.order;
+  const heldBody = (await readBody(held)) as { ok: true; order: QuantityOrder } | Failure;
+  if (!held.ok || !heldBody.ok) throw new ApiError(failureMessage(heldBody));
+
+  const confirmed = await fetch(`/backend/orders/${heldBody.order.id}/confirm`, { method: "POST" });
+  const confirmedBody = (await readBody(confirmed)) as { ok: true; order: QuantityOrder } | Failure;
+  if (!confirmed.ok || !confirmedBody.ok) {
+    await fetch(`/backend/orders/${heldBody.order.id}/release`, { method: "POST" });
+    throw new ApiError(failureMessage(confirmedBody));
+  }
+  return confirmedBody.order;
 }
 
 export async function reloadQuantityProduct(productId: string): Promise<QuantityProduct | null> {

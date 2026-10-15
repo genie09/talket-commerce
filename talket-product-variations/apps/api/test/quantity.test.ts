@@ -4,16 +4,12 @@ import type { Pool } from "mysql2/promise";
 import { createDatabasePool } from "../src/database/database.service";
 import { ensureSchema, truncateCommerce } from "../src/database/schema";
 import { loadEnv } from "../src/load-env";
-import {
-  adjustQuantityStock,
-  createQuantityProduct,
-  getQuantityOrder,
-  listQuantityProducts,
-  refundQuantity,
-  sellQuantity,
-  settleQuantity,
-  updateQuantityProduct,
-} from "../src/quantity/quantity.commands";
+import { createProduct } from "../src/commerce/create-product";
+import { adjustStock, listQuantityProducts, updateProduct } from "../src/commerce/product-edits";
+import { getOrder } from "../src/commerce/read-order";
+import { refundOrder } from "../src/commerce/refund-order";
+import { sellQuantity } from "../src/commerce/sell-order";
+import { settleOrder } from "../src/commerce/settle-order";
 
 loadEnv();
 const pool: Pool = createDatabasePool();
@@ -28,7 +24,7 @@ after(async () => {
 
 test("a price change does not change the refund of an earlier sale", async () => {
   await truncateCommerce(pool);
-  const created = await createQuantityProduct(pool, { name: "머그컵", unitPrice: 10_000, stock: 5 });
+  const created = await createProduct(pool, { name: "머그컵", unitPrice: 10_000, stock: 5 });
   assert.equal(created.ok, true);
   if (!created.ok) return;
 
@@ -38,10 +34,10 @@ test("a price change does not change the refund of an earlier sale", async () =>
   assert.equal(sold.value.entries[0]?.amount, 20_000);
   assert.equal(sold.value.line.unitPrice, 10_000);
 
-  const updated = await updateQuantityProduct(pool, { productId: created.value.id, unitPrice: 8_000 });
+  const updated = await updateProduct(pool, { productId: created.value.id, unitPrice: 8_000 });
   assert.equal(updated.ok, true);
 
-  const refunded = await refundQuantity(pool, {
+  const refunded = await refundOrder(pool, {
     orderId: sold.value.id,
     quantity: 1,
     idempotencyKey: "refund-once",
@@ -55,7 +51,7 @@ test("a price change does not change the refund of an earlier sale", async () =>
   );
   assert.equal(refunded.value.balance, 10_000);
 
-  const replay = await refundQuantity(pool, {
+  const replay = await refundOrder(pool, {
     orderId: sold.value.id,
     quantity: 1,
     idempotencyKey: "refund-once",
@@ -69,12 +65,12 @@ test("a price change does not change the refund of an earlier sale", async () =>
   assert.equal(products[0]?.stock, 4);
   assert.equal(products[0]?.unitPrice, 8_000);
 
-  const settled = await settleQuantity(pool, { orderId: sold.value.id });
+  const settled = await settleOrder(pool, sold.value.id);
   assert.equal(settled.ok, true);
   if (!settled.ok) return;
   assert.equal(settled.value.entries.find((entry) => entry.kind === "payable")?.amount, 10_000);
 
-  const afterSettle = await refundQuantity(pool, {
+  const afterSettle = await refundOrder(pool, {
     orderId: sold.value.id,
     quantity: 1,
     idempotencyKey: "refund-after-settle",
@@ -84,7 +80,7 @@ test("a price change does not change the refund of an earlier sale", async () =>
 
 test("eight buyers of the last item produce one sale", async () => {
   await truncateCommerce(pool);
-  const created = await createQuantityProduct(pool, { name: "마지막 티켓", unitPrice: 5_000, stock: 1 });
+  const created = await createProduct(pool, { name: "마지막 티켓", unitPrice: 5_000, stock: 1 });
   assert.equal(created.ok, true);
   if (!created.ok) return;
 
@@ -103,7 +99,7 @@ test("eight buyers of the last item produce one sale", async () => {
 
 test("two full refunds of the same line record one ledger entry", async () => {
   await truncateCommerce(pool);
-  const created = await createQuantityProduct(pool, { name: "포스터", unitPrice: 4_000, stock: 4 });
+  const created = await createProduct(pool, { name: "포스터", unitPrice: 4_000, stock: 4 });
   assert.equal(created.ok, true);
   if (!created.ok) return;
 
@@ -112,8 +108,8 @@ test("two full refunds of the same line record one ledger entry", async () => {
   if (!sold.ok) return;
 
   const results = await Promise.all([
-    refundQuantity(pool, { orderId: sold.value.id, quantity: 2, idempotencyKey: "a" }),
-    refundQuantity(pool, { orderId: sold.value.id, quantity: 2, idempotencyKey: "b" }),
+    refundOrder(pool, { orderId: sold.value.id, quantity: 2, idempotencyKey: "a" }),
+    refundOrder(pool, { orderId: sold.value.id, quantity: 2, idempotencyKey: "b" }),
   ]);
   assert.equal(results.filter((result) => result.ok).length, 1);
   const loser = results.find((result) => !result.ok);
@@ -122,12 +118,12 @@ test("two full refunds of the same line record one ledger entry", async () => {
   assert.equal(loser.reason, "nothing-remaining");
   assert.equal(loser.conflict, false);
 
-  const stored = await getQuantityOrder(pool, sold.value.id);
+  const stored = await getOrder(pool, sold.value.id);
   assert.equal(stored?.entries.filter((entry) => entry.kind === "refund").length, 1);
 
   const products = await listQuantityProducts(pool);
   assert.equal(products[0]?.stock, 4);
 
-  const blocked = await adjustQuantityStock(pool, { productId: created.value.id, delta: -100 });
+  const blocked = await adjustStock(pool, { productId: created.value.id, delta: -100 });
   assert.equal(blocked.ok, false);
 });

@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { SeatMap } from "@/components/purchase/v2/seat-map";
 import { OptionFields } from "@/components/purchase/option-fields";
 import { PurchaseShell, type ScreenReceipt } from "@/components/purchase/purchase-shell";
 import { RefundPanel, type RefundUnit } from "@/components/purchase/refund-panel";
-import type { PurchaseVersion } from "@/components/purchase/version-bar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   initialOptions,
@@ -17,7 +15,7 @@ import {
 import { won } from "@/lib/format";
 import { refundCopy } from "@/lib/refund-copy";
 
-export function SessionSeatPurchase({ product, version }: { product: SessionSeatProduct; version: PurchaseVersion }) {
+export function SessionSeatPurchase({ product }: { product: SessionSeatProduct }) {
   const [options, setOptions] = useState(() => initialOptions(product));
   const [sessions, setSessions] = useState(product.sessions);
   const [sessionId, setSessionId] = useState(product.sessions[0]?.id ?? "");
@@ -88,7 +86,6 @@ export function SessionSeatPurchase({ product, version }: { product: SessionSeat
 
   return (
     <PurchaseShell
-      version={version}
       product={product}
       choiceLines={choices}
       total={chosen.length === 0 ? 0 : total}
@@ -134,13 +131,7 @@ export function SessionSeatPurchase({ product, version }: { product: SessionSeat
           ))}
         </ToggleGroup>
       </section>
-      {session && version === "2" ? (
-        <SeatMap
-          seats={session.seats}
-          onAdd={(id) => setSelected((current) => (current.includes(id) ? current : [...current, id]))}
-          onRemove={(id) => setSelected((current) => current.filter((item) => item !== id))}
-        />
-      ) : session ? (
+      {session ? (
         <section className="space-y-4">
           <h2 className="text-sm font-medium">좌석</h2>
           {grades.map((grade) => (

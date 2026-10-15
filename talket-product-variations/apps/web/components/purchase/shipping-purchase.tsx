@@ -7,12 +7,11 @@ import { OptionFields } from "@/components/purchase/option-fields";
 import { PurchaseShell, type ScreenReceipt } from "@/components/purchase/purchase-shell";
 import { RefundPanel } from "@/components/purchase/refund-panel";
 import { Stepper } from "@/components/purchase/stepper";
-import type { PurchaseVersion } from "@/components/purchase/version-bar";
 import { initialOptions, optionLines, type ShippingProduct } from "@/lib/catalog";
 import { won } from "@/lib/format";
 import { refundCopy } from "@/lib/refund-copy";
 
-export function ShippingPurchase({ product, version }: { product: ShippingProduct; version: PurchaseVersion }) {
+export function ShippingPurchase({ product }: { product: ShippingProduct }) {
   const [options, setOptions] = useState(() => initialOptions(product));
   const [stock, setStock] = useState(product.stock);
   const [quantity, setQuantity] = useState(1);
@@ -64,7 +63,6 @@ export function ShippingPurchase({ product, version }: { product: ShippingProduc
 
   return (
     <PurchaseShell
-      version={version}
       product={product}
       choiceLines={[...choices, `재고 ${stock}`]}
       total={product.unitPrice * quantity}
@@ -91,12 +89,12 @@ export function ShippingPurchase({ product, version }: { product: ShippingProduc
         onChange={(axisId, valueId) => setOptions((current) => ({ ...current, [axisId]: valueId }))}
       />
       <section className="space-y-2">
-        <h2 className="text-sm font-medium">{version === "2" ? "1. 수량" : "수량"}</h2>
+        <h2 className="text-sm font-medium">수량</h2>
         <Stepper value={quantity} min={1} max={Math.max(stock, 1)} onChange={setQuantity} />
         <p className="text-sm text-muted-foreground">남은 재고 {stock}개</p>
       </section>
       <section className="grid gap-4">
-        <h2 className="text-sm font-medium">{version === "2" ? "2. 받는 곳" : "받는 곳"}</h2>
+        <h2 className="text-sm font-medium">받는 곳</h2>
         <div className="grid gap-2">
           <Label htmlFor="recipient">받는 사람</Label>
           <Input id="recipient" value={recipient} onChange={(event) => setRecipient(event.target.value)} />

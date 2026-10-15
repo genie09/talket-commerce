@@ -11,14 +11,14 @@ import type { CatalogProduct } from "@/lib/catalog";
 export function PurchaseScreen({ product, version }: { product: CatalogProduct; version: PurchaseVersion }) {
   switch (product.archetype) {
     case "quantity":
-      return <QuantityPurchase fixture={product} version={version} />;
+      return <QuantityPurchase fixture={product} />;
     case "session-seat":
-      return <SessionSeatPurchase product={product} version={version} />;
+      return <SessionSeatPurchase product={product} />;
     case "time-slot":
       return <TimeSlotPurchase product={product} version={version} />;
     case "interval":
       return <IntervalPurchase product={product} version={version} />;
     case "shipping":
-      return <ShippingPurchase product={product} version={version} />;
+      return <ShippingPurchase product={product} />;
   }
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { VersionBar, type PurchaseVersion } from "@/components/purchase/version-bar";
+import { hasVersionSwitch, VersionBar, type PurchaseVersion } from "@/components/purchase/version-bar";
 import { archetypeLabels, type CatalogProduct } from "@/lib/catalog";
 import { won } from "@/lib/format";
 
@@ -30,7 +30,7 @@ export function PurchaseShell({
   below,
 }: {
   product: CatalogProduct;
-  version: PurchaseVersion;
+  version?: PurchaseVersion;
   children: ReactNode;
   choiceLines: string[];
   total: number | null;
@@ -45,7 +45,7 @@ export function PurchaseShell({
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-6 py-8">
-      <VersionBar version={version} product={product} />
+      {version && hasVersionSwitch(product.archetype) ? <VersionBar version={version} product={product} /> : null}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="space-y-6">
         <div className="space-y-3">
