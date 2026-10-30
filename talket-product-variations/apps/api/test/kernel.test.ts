@@ -5,6 +5,7 @@ import type { Pool } from "mysql2/promise";
 import { changeLine } from "../src/commerce/change-order";
 import { confirmOrder } from "../src/commerce/confirm-order";
 import { createProduct } from "../src/commerce/create-product";
+import { demoPackageSlug, ensureDemoPackage, loadPackage } from "../src/commerce/demo-package";
 import { fulfillLine } from "../src/commerce/fulfill-order";
 import { holdOrder } from "../src/commerce/hold-order";
 import { refundOrder } from "../src/commerce/refund-order";
@@ -437,6 +438,49 @@ test("changing sellable moves stock and records the price difference", async () 
   assert.equal(changed.balance, 8_000);
   assert.equal((await reload(mug.id)).stock, 5);
   assert.equal((await reload(cup.id)).stock, 4);
+});
+
+test("the K-pop package holds heterogeneous inventory in one order", async () => {
+  await truncateCommerce(pool);
+  await ensureDemoPackage(pool);
+  const item = await loadPackage(pool, demoPackageSlug);
+  assert.ok(item);
+  const flight = item.components.find((component) => component.role === "flight");
+  const concert = item.components.find((component) => component.role === "concert");
+  const activity = item.components.find((component) => component.role === "activity");
+  const lodging = item.components.find((component) => component.role === "lodging");
+  assert.ok(flight && concert && activity && lodging);
+  const seatSellable = concert.product.sellables[0];
+  const seat = seatSellable?.inventories.find((inventory) => inventory.state === "free");
+  const tourSellable = activity.product.sellables[0];
+  const tourSlot = tourSellable?.inventories[0];
+  const flightSellable = flight.product.sellables[0];
+  const flightSchedule = flightSellable?.inventories[0];
+  assert.ok(seatSellable && seat && tourSellable && tourSlot && flightSellable && flightSchedule);
+
+  const held = unwrap(
+    await holdOrder(pool, {
+      lines: [
+        { sellableId: flightSellable.id, quantity: 1, subjects: [{ inventoryId: flightSchedule.id }] },
+        { sellableId: seatSellable.id, quantity: 1, subjects: [{ inventoryId: seat.id }] },
+        { sellableId: tourSellable.id, quantity: 1, subjects: [{ inventoryId: tourSlot.id }] },
+        {
+          sellableId: lodging.product.sellables[0]!.id,
+          quantity: 1,
+          intervalStart: "2026-11-20 15:00",
+          intervalEnd: "2026-11-22 11:00",
+        },
+      ],
+    }),
+  );
+  assert.equal(held.lines.length, 4);
+  assert.deepEqual(
+    new Set(held.lines.map((line) => line.policyKey)),
+    new Set(["quantity.v1", "seat.v1", "interval.v1"]),
+  );
+  const sold = unwrap(await confirmOrder(pool, held.id));
+  assert.equal(sold.status, "sold");
+  assert.equal(sold.paymentAmount, sold.lines.reduce((sum, line) => sum + line.amountDueNow, 0));
 });
 
 async function reload(productId: string) {

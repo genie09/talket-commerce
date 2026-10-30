@@ -3,6 +3,7 @@ import { DatabaseModule } from "../database/database.module";
 import { DatabaseService } from "../database/database.service";
 import { ensureSchema } from "../database/schema";
 import { CommerceController } from "./commerce.controller";
+import { ensureDemoPackage } from "./demo-package";
 
 @Module({
   imports: [DatabaseModule],
@@ -13,5 +14,6 @@ export class CommerceModule implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await ensureSchema(this.database.pool);
+    await ensureDemoPackage(this.database.pool);
   }
 }

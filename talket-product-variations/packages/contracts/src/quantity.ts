@@ -21,6 +21,10 @@ export type InventoryView = {
   id: string;
   policyKey: PolicyKey;
   label: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  sessionLabel: string | null;
+  grade: string | null;
   onHand: number | null;
   requiredQuantity: number;
   state: string | null;
@@ -106,4 +110,22 @@ export type HoldLineRequest = {
 
 export type HoldOrderRequest = {
   lines: HoldLineRequest[];
+};
+
+export type PackageComponentView = {
+  id: string;
+  role: "flight" | "concert" | "activity" | "lodging";
+  required: boolean;
+  position: number;
+  product: QuantityProduct;
+};
+
+export type PackageProductView = {
+  id: string;
+  slug: string;
+  name: string;
+  summary: string;
+  startsOn: string;
+  endsOn: string;
+  components: PackageComponentView[];
 };

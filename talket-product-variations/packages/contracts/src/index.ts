@@ -17,6 +17,8 @@ export type {
   OfferView,
   OrderLineView,
   OrderStatus,
+  PackageComponentView,
+  PackageProductView,
   PolicyKey,
   QuantityOrder,
   QuantityProduct,

@@ -5,8 +5,6 @@ import { DayPicker, type DateRange } from "react-day-picker";
 import { ko } from "react-day-picker/locale";
 import "react-day-picker/style.css";
 
-const october = new Date(2026, 9, 1);
-
 export function formatDay(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -39,7 +37,7 @@ export function RangeCalendar({
           locale={ko}
           weekStartsOn={0}
           numberOfMonths={2}
-          defaultMonth={october}
+          defaultMonth={parseDay(start)}
           selected={selected}
           onSelect={(range) => {
             if (!range?.from) return;
@@ -69,7 +67,7 @@ export function DayCalendar({
           mode="single"
           locale={ko}
           weekStartsOn={0}
-          defaultMonth={october}
+          defaultMonth={parseDay(day)}
           selected={parseDay(day)}
           onSelect={(next) => {
             if (next) onChange(formatDay(next));

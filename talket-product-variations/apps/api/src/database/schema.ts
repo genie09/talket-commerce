@@ -9,6 +9,8 @@ const tables = [
   "order_items",
   "order_lines",
   "orders",
+  "package_components",
+  "package_products",
   "availability_bindings",
   "availability_interval_resources",
   "availability_seats",
@@ -34,6 +36,29 @@ const statements = [
     fee_bps INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS package_products (
+    id CHAR(36) NOT NULL,
+    slug VARCHAR(100) NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    summary VARCHAR(500) NOT NULL,
+    starts_on DATE NOT NULL,
+    ends_on DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY package_products_slug (slug)
+  ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS package_components (
+    id CHAR(36) NOT NULL,
+    package_id CHAR(36) NOT NULL,
+    product_id CHAR(36) NOT NULL,
+    role VARCHAR(32) NOT NULL,
+    required TINYINT NOT NULL,
+    position INT NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY package_components_product (package_id, product_id),
+    CONSTRAINT package_components_package FOREIGN KEY (package_id) REFERENCES package_products (id),
+    CONSTRAINT package_components_product_fk FOREIGN KEY (product_id) REFERENCES products (id)
   ) ENGINE=InnoDB`,
   `CREATE TABLE IF NOT EXISTS option_axes (
     id CHAR(36) NOT NULL,

@@ -1,12 +1,14 @@
 import { Body, Controller, Get, HttpException, HttpStatus, Param, Patch, Post } from "@nestjs/common";
-import type { HoldOrderRequest, QuantityOrder, QuantityProduct } from "@talket/contracts";
+import type { HoldOrderRequest, PackageProductView, QuantityOrder, QuantityProduct } from "@talket/contracts";
 import { DatabaseService } from "../database/database.service";
 import { changeLine } from "./change-order";
 import { confirmOrder } from "./confirm-order";
 import { createProduct, type CreateProductInput } from "./create-product";
+import { listPackages, loadPackage } from "./demo-package";
 import { fulfillLine } from "./fulfill-order";
 import { holdOrder } from "./hold-order";
-import { adjustStock, listQuantityProducts, updateProduct } from "./product-edits";
+import { adjustStock, updateProduct } from "./product-edits";
+import { listProducts } from "./read-product";
 import { getOrder } from "./read-order";
 import { refundOrder } from "./refund-order";
 import { releaseOrder } from "./release-order";
@@ -20,7 +22,21 @@ export class CommerceController {
 
   @Get("products")
   async list(): Promise<{ ok: true; products: QuantityProduct[] }> {
-    return { ok: true, products: await listQuantityProducts(this.database.pool) };
+    return { ok: true, products: await listProducts(this.database.pool) };
+  }
+
+  @Get("packages")
+  async packages(): Promise<{ ok: true; packages: PackageProductView[] }> {
+    return { ok: true, packages: await listPackages(this.database.pool) };
+  }
+
+  @Get("packages/:slug")
+  async package(@Param("slug") slug: string): Promise<{ ok: true; package: PackageProductView }> {
+    const item = await loadPackage(this.database.pool, slug);
+    if (!item) {
+      throw new HttpException({ ok: false, reason: "package-not-found", conflict: false }, HttpStatus.NOT_FOUND);
+    }
+    return { ok: true, package: item };
   }
 
   @Post("products")

@@ -40,7 +40,12 @@ type InventoryRow = RowDataPacket & {
   seat_state: string | null;
   seat_label: string | null;
   slot_label: string | null;
+  slot_starts_at: Date | string | null;
+  slot_ends_at: Date | string | null;
   resource_label: string | null;
+  session_label: string | null;
+  session_starts_at: Date | string | null;
+  seat_grade: string | null;
 };
 
 type FieldRow = RowDataPacket & {
@@ -62,10 +67,14 @@ export async function loadProduct(
 }
 
 export async function listQuantityProducts(pool: Pool): Promise<QuantityProduct[]> {
+  const products = await listProducts(pool);
+  return products.filter((product) => product.usageMethod === "quantity");
+}
+
+export async function listProducts(pool: Pool): Promise<QuantityProduct[]> {
   const [rows] = await pool.query<ProductRow[]>(
     `SELECT id, name, catalog_kind, fee_bps
      FROM products
-     WHERE catalog_kind = 'quantity'
      ORDER BY created_at DESC, id DESC`,
   );
   return loadProducts(
@@ -74,7 +83,7 @@ export async function listQuantityProducts(pool: Pool): Promise<QuantityProduct[
   );
 }
 
-async function loadProducts(pool: Pool | PoolConnection, productIds: string[]): Promise<QuantityProduct[]> {
+export async function loadProducts(pool: Pool | PoolConnection, productIds: string[]): Promise<QuantityProduct[]> {
   if (productIds.length === 0) return [];
   const [products] = await pool.query<ProductRow[]>(
     "SELECT id, name, catalog_kind, fee_bps FROM products WHERE id IN (?) ORDER BY created_at DESC, id DESC",
@@ -113,11 +122,14 @@ async function loadProducts(pool: Pool | PoolConnection, productIds: string[]): 
         await pool.query<InventoryRow[]>(
           `SELECT b.sellable_id, b.inventory_id, i.policy_key, b.required_quantity,
                   q.on_hand, se.state AS seat_state, se.label AS seat_label,
-                  sl.label AS slot_label, ir.label AS resource_label
+                  se.grade AS seat_grade, sess.label AS session_label, sess.starts_at AS session_starts_at,
+                  sl.label AS slot_label, sl.starts_at AS slot_starts_at, sl.ends_at AS slot_ends_at,
+                  ir.label AS resource_label
            FROM availability_bindings b
            JOIN availability_inventories i ON i.id = b.inventory_id
            LEFT JOIN availability_quantity_stocks q ON q.inventory_id = i.id
            LEFT JOIN availability_seats se ON se.inventory_id = i.id
+           LEFT JOIN availability_sessions sess ON sess.id = se.session_id
            LEFT JOIN availability_slot_subjects sl ON sl.inventory_id = i.id
            LEFT JOIN availability_interval_resources ir ON ir.inventory_id = i.id
            WHERE b.sellable_id IN (?)
@@ -197,10 +209,28 @@ function toInventory(row: InventoryRow): InventoryView {
     id: row.inventory_id,
     policyKey: row.policy_key,
     label: row.seat_label ?? row.slot_label ?? row.resource_label,
+    startsAt: dateTime(row.slot_starts_at ?? row.session_starts_at),
+    endsAt: dateTime(row.slot_ends_at),
+    sessionLabel: row.session_label,
+    grade: row.seat_grade,
     onHand: row.on_hand === null ? null : Number(row.on_hand),
     requiredQuantity: Number(row.required_quantity),
     state: row.seat_state,
   };
+}
+
+function dateTime(value: Date | string | null): string | null {
+  if (value === null) return null;
+  if (value instanceof Date) {
+    const date = [value.getFullYear(), value.getMonth() + 1, value.getDate()].map((part, index) =>
+      index === 0 ? String(part) : String(part).padStart(2, "0"),
+    ).join("-");
+    const time = [value.getHours(), value.getMinutes(), value.getSeconds()]
+      .map((part) => String(part).padStart(2, "0"))
+      .join(":");
+    return `${date}T${time}`;
+  }
+  return String(value).replace(" ", "T");
 }
 
 function sellableStock(mode: "all" | "choice", inventories: InventoryView[]): number | null {
