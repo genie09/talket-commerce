@@ -127,7 +127,7 @@ async function createActivities(pool: Pool): Promise<QuantityProduct[]> {
   const studio = await mustCreate(pool, {
     name: "성수 K-pop 댄스 클래스",
     sellables: [{
-      name: "STARLIGHT 후렴 안무",
+      name: "BTS Dynamite 안무",
       unitPrice: 69_000,
       inventories: [
         { policyKey: "quantity.v1", onHand: 6, slot: { label: "11월 20일 16:00", startsAt: "2026-11-20 16:00", endsAt: "2026-11-20 17:30" } },

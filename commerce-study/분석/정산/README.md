@@ -37,7 +37,7 @@
 
 ### 세금
 
-구매자 결제액의 부가세, 플랫폼 수수료의 부가세, 수신자에게 나눈 돈의 세금계산서·원천징수는 세 공급이다. 한 칸에 넣지 않는다. 주문·상품에 세율 칸은 아직 없다. `PartnerBusiness`에는 상호, 대표, 주소, 사업자번호, 등록증이 있고, 나중에 고칠 수 있다. 개인·원천징수 구분은 없다.
+구매자 결제액의 부가세, 플랫폼 수수료의 부가세, 수신자에게 나눈 돈의 세금계산서·원천징수는 세 공급이다. 한 칸에 넣지 않는다. 주문·상품에 세율 칸은 아직 없다. `PartnerBusiness`에는 상호, 대표, 주소, 사업자번호, 등록증이 있고, 나중에 고칠 수 있다. Which document to issue, and when to block a payout, for a corporation, a registered business, or an unregistered person is in [seller-type.md](seller-type.md).
 
 - 구매자 공급은 줄마다 공급자가 한 명이다. 주최가 될 수도 있고 플랫폼이 될 수도 있다. 수신자 여럿이 구매자에게 각각 세금계산서를 내지 않는다. 가격은 부가세 포함이 기본이라, 결제액에서 공급가액과 세액을 나눈다. 세율과 과세·면세·영세는 판매 시점에 얼린다.
 - 플랫폼 수수료는 플랫폼이 수신자에게 하는 용역이다. 구매자 부가세와 칸을 나누고, 구매자 합계에 더하지 않는다. 수수료가 플랫폼 수신자 행이면 그 행에 공급가액과 세액을 같이 얼린다. 세금계산서는 플랫폼이 그 수신자에게 끊는다.
@@ -79,27 +79,11 @@ flowchart TD
 
 ### A. 네 기록 (Spree 6)
 
-마켓플레이스 정산이 코드로 있는 곳은 이 클론뿐이다. 모델 주석이 설계다.
+Detail is in [spree/README.md](spree/README.md). Mercur is in [mercur/README.md](mercur/README.md). The four records follow Spree. Both are one seller plus a platform commission. Neither splits a payment across recipients.
 
-`spree/core/app/models/spree/commission_line.rb`  
-`spree/core/app/models/spree/seller_transfer.rb`  
-`spree/core/app/models/spree/seller_payout.rb`  
-`spree/core/app/services/spree/commissions/commission_order.rb`  
-`spree/core/app/subscribers/spree/seller_transfer_subscriber.rb`
+Take: split rule, commission line, accrual, and payout into four records. Refunds are reversal rows. A failed payout releases only the batch link. `unresolved` keeps the link.
 
-**규칙.** `CommissionRate`는 스토어의 목록이다. 규칙이 없는 비율이 전체 기본값이고, 목록 맨 아래에 있어야 한다. 그 아래는 닿지 않는다. 해상도는 목록 순서의 첫 매치다. 상품이 카테고리보다 이긴다는 점수는 없다. 시드는 마켓 기본값 하나만 넣고 맨 아래로 내린다. 상품·카테고리·판매자 자리는 시드하지 않는다. 규칙이 없는 빈 비율은 모든 판매에 맞아 아래를 죽이기 때문이다. 새 비율은 목록 맨 위에 들어간다. `docs/user/vendors/commission-rates.mdx`의 “상품 > 판매자 > 기본값, 더 구체적인 규칙이 이긴다”는 이 목록이 아니다. 벤더 프로필과 상품 Platform Fee 칸을 말하는 다른 설명이고, 개발자 문서는 목록 순서만 인정한다. 비율을 고치면 다음 판매만 바뀐다.
-
-**커미션 줄.** 주문 배치(`order.placed`) 때 `CommissionOrder`가 줄을 쓴다. 이미 있으면 다시 계산하지 않고 합계만 맞춘다. 줄 아이템·이행마다 유니크 인덱스가 있어 재전달이 두 번 청구하지 못한다. 이 행은 플랫폼이 그 줄에서 떼는 수수료다. 수신자 분할이 아니다. 판매자는 줄의 `seller_id` 스냅샷이다. 지금 상품 주인이 아니다. 판매자가 없는 줄은 마켓 자신의 상품이라 커미션이 없다. 금액·세액·세율·적용 비율이 행에 복사된다. 커미션 부가세는 상품 부가세와 다른 공급(플랫폼이 판매자에게 청구)이라 칸을 나눈다. 주문에 올라가는 `commission_total`은 그 합의 캐시이고, 구매자 합계에는 안 들어간다.
-
-**발생.** `order.fulfilled`를 받는 구독자가 `SellerTransfer`를 만든다. 비동기다. 송금 HTTP를 출고 트랜잭션 안에 두지 않기 위해서다. 디지털 주문은 이행이 즉시라 바로 발생한다. 금액은 그 주문의 판매액에서 커미션 합을 뺀 값이고, 주문당 하나다. 유니크는 `kind = earning`인 `order_id`다. `order.seller_id`가 없으면 쓰지 않는다. 판매자 주문으로 쪼갠 뒤의 키라, 줄 단위 원장에 그대로 쓰면 한 주문의 두 번째 줄이 거절된다. 스토어 크레딧·기프트카드로 냈는지는 보지 않는다. 판매자 채권을 그 결제 수단만큼 줄이지 않는다. 그 대금은 플랫폼이 댄다. 종류는 `earning`과 `refund_reversal`뿐이다. 환불은 기존 행을 고치지 않고 음수 행을 하나 더 쓴다. 환불당 하나만 유니크다. 줄마다 키가 아니다. 되돌릴 수 있는 금액은 원래 발생에서 이미 되돌린 합을 빼고, 0 아래로 내려가지 않는다.
-
-**지급.** 발생 행의 `payout_id`가 비어 있고 상태가 `completed`인 것만 다음 정산에 담긴다. 지급은 판매자·기간·금액이고, 어떤 발생을 묶었는지 행이 가리킨다. 이미 닫힌 지급 뒤에 도착한 환불 역분은 다음 기간으로 간다. 지급을 지워도 발생은 남고, `payout_id`만 풀려 다음 주기에 다시 담긴다. 실패한 지급이 스탬프를 안고 있으면 그 발생은 영영 안 보인다. 풀지 않는 것이 버그다.
-
-상태는 상태 기계가 아니다. `pending`, `processing`, `completed`, `failed`, `unresolved`. `fail!`은 발생의 `payout_id`를 푼다. `unresolve!`는 풀지 않는다. `unresolved`는 결제사가 돈이 움직였는지 답을 못 한 상태라 재시도하지 않는다. 다시 물어 두 번 보내는 길을 막는다. 돈을 실제로 보내는 일은 `PayoutProvider`다. 기본 구현은 기록만 하고 운영자가 송금한다. Stripe Connect는 그 포트의 한 구현이다.
-
-가져갈 것: 규칙 / 커미션 줄 / 발생 / 지급을 네 기록으로 나누고, 환불은 역분개로만 하고, 지급 실패는 묶음만 푼다. `unresolved`는 묶음을 풀지 않는다.
-
-가져가지 말 것: 판매자마다 주문을 쪼개는 것. `SplitBySeller`가 판매자 주문을 만들고, 결제는 그룹에 하나 둔 채 `AllocatePayments`가 자식 주문의 금액을 장부로만 나눈다. 캡처가 판매자 수만큼 생기지 않는다. 톡켓은 그 주문 분할도 하지 않는다. 캡처는 주문에 하나이고, 나눌 곳은 몫 행이다. 발생 유니크를 주문 id로 두는 것도 가져가지 않는다. 커미션을 구매자 합계에 더하지 않는다. Spree도 더하지 않는다.
+Leave: splitting the order per seller. Capture stays one per order. The split belongs on share rows. Do not key an accrual by order id. Do not add commission to the buyer total. Spree does not add it either.
 
 ### B. 계약과 매출 이력 (pretix)
 

@@ -385,7 +385,8 @@ async function applyDemands(connection: PoolConnection, demands: Demand[]): Prom
     const [rows] = await connection.query<RowDataPacket[]>(
       `SELECT id FROM holds
        WHERE inventory_id = ? AND state IN ('held', 'committed')
-         AND interval_start < ? AND interval_end > ?`,
+         AND interval_start < ? AND interval_end > ?
+       FOR UPDATE`,
       [interval.inventoryId, interval.intervalEnd, interval.intervalStart],
     );
     if (rows.length > 0) return fail("overlap", true);

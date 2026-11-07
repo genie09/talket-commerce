@@ -77,7 +77,8 @@ async function shortenInterval(
   const [overlaps] = await connection.query<RowDataPacket[]>(
     `SELECT interval_start, interval_end FROM holds
      WHERE inventory_id = ? AND id <> ? AND state IN ('held', 'committed')
-       AND interval_start < ? AND interval_end > ?`,
+       AND interval_start < ? AND interval_end > ?
+     FOR UPDATE`,
     [hold.inventory_id, hold.id, end, hold.interval_start],
   );
   if (overlaps.some((row) => rangesOverlap(hold.interval_start!, end, row.interval_start, row.interval_end))) {
